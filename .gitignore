@@ -1,0 +1,5 @@
+*.exe
+*.jpg
+*.pdf
+*Thumbs.db
+config.php

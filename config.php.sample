@@ -1,0 +1,16 @@
+
+<?php
+
+$dsn = 'mysql:dbname=workout;host=dbhost;port=3306';
+$user = 'mysqluser';
+$password = 'mysqlpassword';
+
+try {
+    $dbh = new PDO($dsn, $user, $password);
+
+
+} catch (PDOException $e) {
+    echo 'Connection failed: ' . $e->getMessage();
+}
+
+?>
