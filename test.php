@@ -44,11 +44,15 @@ switch ($dw) {
         $exerciseroutine = "A";
 }
 
+$barbell = 45;
+$plates = [45, 35, 25, 10, 5, 2.5];
+
 $exercises = array();
+$exercises[] = array('name'=>'deadlift', 'sets'=>1, 'reps'=>[4,6], 'routines'=>['A','B', 'C'], 'type' => 'barbell', 'startweight' => 275, 'addweight' => 10);
 $exercises[] = array('name'=>'squats', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['A','B','C']);
 $exercises[] = array('name'=>'pullups', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['A','C']);
 $exercises[] = array('name'=>'horizontalpulls', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['B']);
-$exercises[] = array('name'=>'overheadpress', 'sets'=>1, 'reps'=>[4, 6], 'routines'=>['A']);
+$exercises[] = array('name'=>'overheadpress', 'sets'=>1, 'reps'=>[4, 6], 'routines'=>['A'], 'type' => 'barbell', 'startweight' => 285, 'addweight' => 10);
 $exercises[] = array('name'=>'dips', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['B']);
 $exercises[] = array('name'=>'handstands', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['C']);
 $exercises[] = array('name'=>'legraises', 'sets'=>3, 'reps'=>[4, 5, 6, 7, 8], 'routines'=>['A','B','C']);

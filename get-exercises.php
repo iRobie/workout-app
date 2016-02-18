@@ -1,5 +1,6 @@
 
 <?php
+include("plate-calculator.php");
 function insertitem($categoryName, $stepNumber, $reps, $completed, $failed)
 {
   // Tells PHP to use the global activities, not local one
@@ -62,11 +63,40 @@ function insertitem($categoryName, $stepNumber, $reps, $completed, $failed)
 
 
 foreach ($exercises as $exerciserow) {
+
+    # Get the exercise that needs to be displayed
     $exercise = $exerciserow['name'];
     $repsarray = $exerciserow['reps'];
     $sets = $exerciserow['sets'];
     $routines = $exerciserow['routines'];
 
+    # Get type of exercise - ie, bodyweight, barbell, dumbbell
+    if (isset($exerciserow['type']))
+    {
+      $exercisetype = $exerciserow['type'];
+    }
+    else {
+      $exercisetype = "bodyweight";
+    }
+
+    # Set a bodyweight flag. Any reason?
+    $bodyweight = false;
+    if ($exercisetype == "bodyweight")
+    {
+      $bodyweight = true;
+    }
+
+    # Get initial weight of the exercise, if barbell or dumbell
+    if (isset($exerciserow['startweight']))
+    {
+      $startweight = $exerciserow['startweight'];
+    }
+    if (isset($exerciserow['addweight']))
+    {
+      $addweight = $exerciserow['addweight'];
+    }
+
+    # Filter days - A days, B days, C days
     if (!in_array($exerciseroutine, $routines)) {
         #echo "Not showing: " . $exercise;
     }
@@ -74,7 +104,7 @@ foreach ($exercises as $exerciserow) {
 
     ## Select steps
       # Get Category Info
-        $categoryquery = "SELECT categoryID, link, image, video
+        $categoryquery = "SELECT categoryID, link, image, video, instructions
             FROM categories
             WHERE categories.name like '%".$exercise."%'";
 
@@ -85,6 +115,7 @@ foreach ($exercises as $exerciserow) {
             $categorylink = $category['link'];
             $categoryimage = $category['image'];
             $categoryvideo = $category['video'];
+            $categoryinstructions = $category['instructions'];
 
       # Grab tracking steps where status is completed
     	    $trackingquery = "SELECT tracking.categoryName as categoryName, stepNumber, reps, completed, failed, date
@@ -116,6 +147,11 @@ foreach ($exercises as $exerciserow) {
       if (!$trackingresults)
       {
         $stepNumber = 0;
+        if (!$bodyweight)
+        {
+          $stepNumber = $startweight;
+          echo "startweight found";
+        }
         $neededreps = $repsarray[0];
       }
 
@@ -134,6 +170,7 @@ foreach ($exercises as $exerciserow) {
           $neededreps = $completedreps;
 
           # 3 failures in a row. In that case, make the stepNumber to the last successful step
+          # Needed: failure logic for barbell weight
           if (sizeof($latestresults) > 3)
           {
               if ($trackingresults['failed'] && $latestresults[1]['failed'] && $latestresults[2]['failed'])
@@ -168,7 +205,14 @@ foreach ($exercises as $exerciserow) {
           # Scenario 3 - There is a completed step, but reps are done. Grab next step ID, and go to lowest number of reps
           if ($key == count($repsarray) -1)
           {
-            $stepNumber = $stepNumber+1;
+            if (!$bodyweight)
+            {
+              $stepNumber = $stepNumber+$addweight;
+            }
+            else {
+              $stepNumber = $stepNumber+1;
+            }
+
             $neededreps = $repsarray[0];
 
           }
@@ -182,6 +226,7 @@ foreach ($exercises as $exerciserow) {
 
     } # If tracking results
 
+      #Hide exercises done in the past hour
       $showexercise = true;
       if ($trackingresults['date'])
       {
@@ -194,26 +239,52 @@ foreach ($exercises as $exerciserow) {
       if ($showexercise)
       {
 
+        $stepsresults['image'] = null;
+        $stepsresults['video'] = null;
+        $stepsresults['link'] = null;
+        $stepsresults['name'] = null;
+        $stepsresults['instructions'] = null;
 
+        # Grabbing data for bodyweight exercises
+        if ($bodyweight)
+        {
 
-      # Finally get the steps needed
-      $stepsquery = "SELECT categoryName as categoryName, stepNumber, name, instructions, link, video, image
-      FROM steps
-      WHERE categoryName like '%".$exercise."%' AND
-      stepNumber >= ".$stepNumber."
-        ORDER BY stepNumber ASC
-        LIMIT 1";
+        # Finally get the steps needed
+        $stepsquery = "SELECT categoryName as categoryName, stepNumber, name, instructions, link, video, image
+        FROM steps
+        WHERE categoryName like '%".$exercise."%' AND
+        stepNumber >= ".$stepNumber."
+          ORDER BY stepNumber ASC
+          LIMIT 1";
 
-        $sth = $dbh->prepare($stepsquery);
-        $sth->execute();
+          $sth = $dbh->prepare($stepsquery);
+          $sth->execute();
 
-        /* Change tracking results to array */
-        $stepsresults = $sth->fetch();
-        $stepNumber = $stepsresults['stepNumber']; # Refresh stepNumber to grab what was returned, not what was sent
+          /* Change tracking results to array */
+          $stepsresults = $sth->fetch();
+          $stepNumber = $stepsresults['stepNumber']; # Refresh stepNumber to grab what was returned, not what was sent
 
+        } #if bodyweight
 
+        # Weighted exercises - use category instructions
+        else
+        {
+          $loadplates = "";
+          if ($exercisetype == "barbell")
+          {
+            $loadedplates = calculatePlates($stepNumber, $barbell, $plates);
+            $loadplates = " - Weight: <strong>Bar + " . implode(" + ", $loadedplates)."</strong>".PHP_EOL;
+          }
+
+          $stepsresults['name'] = $stepNumber;
+          $stepsresults['instructions'] = "<strong>".$stepNumber." pounds</strong>".$loadplates."<br /><br />".PHP_EOL.$categoryinstructions;
+        }
+
+        # Create POST data. Need to change so failed and completed aren't different
         $failedvalue = array($exercise,$stepNumber,$neededreps,0,1);
         $completevalue = array($exercise,$stepNumber,$neededreps,1,0);
+
+        # Construct background image - use step if it's there, else category, else nothing
         if (strlen($stepsresults['image']) > 2 && file_exists("images/" . $stepsresults['image']))
         {
           $backgroundstyle = "background: url('images/" . $stepsresults['image'] . "') center / cover;";
@@ -229,7 +300,7 @@ foreach ($exercises as $exerciserow) {
           $hiddenimage = "";
         }
 
-
+        # Construct video link - use step if it's there, else category, else nothing
         if (strlen($stepsresults['video']) > 2)
         {
           $videolink = '<br /><br /><a href="'.$stepsresults["video"].'" target="_blank">Video instructions</a><br />';
@@ -237,12 +308,12 @@ foreach ($exercises as $exerciserow) {
         elseif (strlen($categoryvideo) > 2)
         {
           $videolink = '<br /><br /><a href="'.$categoryvideo.'" target="_blank">Video instructions</a><br />';
-
         }
         else {
           $videolink = "";
         }
 
+        # Construct category title - use link if defined
         if (strlen($categorylink) > 2)
         {
           $categorytitle = '<a href="'.$categorylink.'" target="_blank">'.ucwords($exercise).'</a>';
@@ -251,6 +322,7 @@ foreach ($exercises as $exerciserow) {
           $categorytitle = ucwords($exercise);
         }
 
+        # Construct step title - use link if defined
         if (strlen($stepsresults['link']) > 2)
         {
           $stepstitle = '<a href="'.$stepsresults['link'].'" target="_blank">'.ucwords($stepsresults['name']).'</a>';
