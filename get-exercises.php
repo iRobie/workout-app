@@ -189,7 +189,14 @@ foreach ($exercises as $exerciserow) {
 
                   /* Change tracking results to array */
                   $successfulresults = $sth->fetch();
-                  $stepNumber = $successfulresults['stepNumber'];
+
+                  if ($bodyweight)
+                  {
+                    $stepNumber = $successfulresults['stepNumber'];
+                  }
+                  else {
+                    $stepNumber = $stepNumber-($addweight*2);
+                  }
                   $neededreps = $repsarray[0];
 
               }
